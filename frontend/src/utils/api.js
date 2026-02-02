@@ -1,7 +1,10 @@
 // API utility for making requests to the backend
 // Centralizes all API calls and handles errors consistently
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+// Use Cloud Run backend in production, empty string for local dev (uses proxy)
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? ''
+  : 'https://asana-1023240361435.europe-west1.run.app'
 
 class ApiError extends Error {
   constructor(message, status, data) {

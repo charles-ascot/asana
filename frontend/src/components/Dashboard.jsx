@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { 
-  Settings, 
-  Plus, 
-  List, 
-  Sparkles, 
+import {
+  Settings,
+  Plus,
+  List,
+  Sparkles,
   Search,
   Calendar,
   CheckCircle2,
@@ -12,6 +12,7 @@ import {
   User
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { API_BASE } from '../config'
 
 function Dashboard() {
   const navigate = useNavigate()
@@ -34,9 +35,9 @@ function Dashboard() {
   const loadDashboardData = async () => {
     try {
       const [tasksRes, statsRes, projectsRes] = await Promise.all([
-        fetch('/api/tasks'),
-        fetch('/api/tasks/stats'),
-        fetch('/api/projects')
+        fetch(`${API_BASE}/api/tasks`),
+        fetch(`${API_BASE}/api/tasks/stats`),
+        fetch(`${API_BASE}/api/projects`)
       ])
 
       if (tasksRes.ok) {
@@ -65,7 +66,7 @@ function Dashboard() {
     if (!taskName) return
 
     try {
-      const response = await fetch('/api/tasks', {
+      const response = await fetch(`${API_BASE}/api/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -84,7 +85,7 @@ function Dashboard() {
 
   const handleCompleteTask = async (taskId) => {
     try {
-      const response = await fetch(`/api/tasks/${taskId}/complete`, {
+      const response = await fetch(`${API_BASE}/api/tasks/${taskId}/complete`, {
         method: 'PUT'
       })
 

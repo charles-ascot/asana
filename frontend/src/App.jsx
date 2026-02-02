@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Dashboard from './components/Dashboard'
 import Settings from './components/Settings'
 import Login from './components/Login'
+import { API_BASE } from './config'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -12,7 +13,7 @@ function App() {
     // Check if user has valid settings
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/settings')
+        const response = await fetch(`${API_BASE}/api/settings`)
         if (response.ok) {
           const data = await response.json()
           setIsAuthenticated(data.configured)

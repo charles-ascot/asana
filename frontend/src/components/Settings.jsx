@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Save, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { API_BASE } from '../config'
 
 function Settings({ onSave }) {
   const navigate = useNavigate()
@@ -22,7 +23,7 @@ function Settings({ onSave }) {
 
   const loadSettings = async () => {
     try {
-      const response = await fetch('/api/settings')
+      const response = await fetch(`${API_BASE}/api/settings`)
       if (response.ok) {
         const data = await response.json()
         setSettings(data)
@@ -41,7 +42,7 @@ function Settings({ onSave }) {
 
   const loadWorkspaces = async (token) => {
     try {
-      const response = await fetch('/api/asana/workspaces', {
+      const response = await fetch(`${API_BASE}/api/asana/workspaces`, {
         headers: {
           'X-Asana-Token': token
         }
@@ -57,7 +58,7 @@ function Settings({ onSave }) {
 
   const loadProjects = async (token, workspaceId) => {
     try {
-      const response = await fetch(`/api/asana/projects?workspace=${workspaceId}`, {
+      const response = await fetch(`${API_BASE}/api/asana/projects?workspace=${workspaceId}`, {
         headers: {
           'X-Asana-Token': token
         }
@@ -91,7 +92,7 @@ function Settings({ onSave }) {
     setErrorMessage('')
 
     try {
-      const response = await fetch('/api/asana/test', {
+      const response = await fetch(`${API_BASE}/api/asana/test`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json'
@@ -121,7 +122,7 @@ function Settings({ onSave }) {
     setErrorMessage('')
 
     try {
-      const response = await fetch('/api/settings', {
+      const response = await fetch(`${API_BASE}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
