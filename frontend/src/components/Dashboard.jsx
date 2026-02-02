@@ -210,7 +210,7 @@ function Dashboard() {
               }}
             >
               <Plus size={24} color="#00D4FF" style={{ marginBottom: '12px' }} />
-              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>
+              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px', color: '#fff' }}>
                 New Request
               </div>
               <div style={{ fontSize: '12px', color: '#888' }}>
@@ -239,7 +239,7 @@ function Dashboard() {
               }}
             >
               <List size={24} color="#e0e0e0" style={{ marginBottom: '12px' }} />
-              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>
+              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px', color: '#fff' }}>
                 Task Queue
               </div>
               <div style={{ fontSize: '12px', color: '#888' }}>
@@ -267,7 +267,7 @@ function Dashboard() {
               }}
             >
               <Sparkles size={24} color="#9D4EDD" style={{ marginBottom: '12px' }} />
-              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>
+              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px', color: '#fff' }}>
                 AI Assistant
               </div>
               <div style={{ fontSize: '12px', color: '#888' }}>
@@ -295,7 +295,7 @@ function Dashboard() {
               }}
             >
               <Search size={24} color="#e0e0e0" style={{ marginBottom: '12px' }} />
-              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>
+              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px', color: '#fff' }}>
                 Project Search
               </div>
               <div style={{ fontSize: '12px', color: '#888' }}>
