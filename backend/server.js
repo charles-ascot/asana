@@ -1,15 +1,9 @@
 import express from 'express'
 import cors from 'cors'
-import asana from 'asana'
+import Asana from 'asana'
 import dotenv from 'dotenv'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
-import fs from 'fs/promises'
 
 dotenv.config()
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
 
 const app = express()
 const PORT = process.env.PORT || 8080
@@ -25,11 +19,12 @@ let appSettings = {
   asanaProject: process.env.ASANA_PROJECT || ''
 }
 
-// Helper to create Asana client
-function createAsanaClient(token) {
-  return asana.Client.create({
-    defaultHeaders: { 'asana-enable': 'new_user_task_lists' }
-  }).useAccessToken(token || appSettings.asanaToken)
+// Helper to configure Asana client with token
+function configureAsana(token) {
+  const client = Asana.ApiClient.instance
+  const tokenAuth = client.authentications['token']
+  tokenAuth.accessToken = token || appSettings.asanaToken
+  return client
 }
 
 // Settings endpoints
@@ -47,13 +42,11 @@ app.get('/api/settings', async (req, res) => {
 app.post('/api/settings', async (req, res) => {
   try {
     const { asanaToken, asanaWorkspace, asanaProject } = req.body
-    
     appSettings = {
       asanaToken,
       asanaWorkspace,
       asanaProject: asanaProject || ''
     }
-    
     res.json({ success: true })
   } catch (error) {
     res.status(500).json({ error: 'Failed to save settings' })
@@ -69,13 +62,14 @@ app.post('/api/asana/test', async (req, res) => {
       return res.status(400).json({ error: 'No token provided' })
     }
 
-    // Trim whitespace that may have been copied accidentally
     const cleanToken = asanaToken.trim()
     console.log('Testing Asana connection with token length:', cleanToken.length)
-    const client = createAsanaClient(cleanToken)
 
-    // Test connection by fetching user info
-    const me = await client.users.me()
+    configureAsana(cleanToken)
+    const usersApi = new Asana.UsersApi()
+
+    const result = await usersApi.getUser('me', {})
+    const me = result.data
 
     console.log('Asana connection successful for user:', me.name)
     res.json({
@@ -85,7 +79,6 @@ app.post('/api/asana/test', async (req, res) => {
     })
   } catch (error) {
     console.error('Asana test failed:', error.message)
-    console.error('Error details:', JSON.stringify(error, null, 2))
     res.status(400).json({
       error: 'Invalid Asana token or connection failed',
       details: error.message
@@ -101,17 +94,13 @@ app.get('/api/asana/workspaces', async (req, res) => {
       return res.status(401).json({ error: 'No Asana token provided' })
     }
 
-    const client = createAsanaClient(token)
-    const workspaces = await client.workspaces.findAll()
-    const workspaceList = []
+    configureAsana(token)
+    const workspacesApi = new Asana.WorkspacesApi()
 
-    for await (const workspace of workspaces) {
-      workspaceList.push(workspace)
-    }
-
-    res.json(workspaceList)
+    const result = await workspacesApi.getWorkspaces({})
+    res.json(result.data || [])
   } catch (error) {
-    console.error('Failed to fetch workspaces:', error)
+    console.error('Failed to fetch workspaces:', error.message)
     res.status(401).json({ error: 'Invalid token or failed to fetch workspaces' })
   }
 })
@@ -121,21 +110,17 @@ app.get('/api/asana/projects', async (req, res) => {
   try {
     const { workspace } = req.query
     const token = req.headers['x-asana-token']
-    const client = createAsanaClient(token)
-    
-    const projects = await client.projects.findAll({
+
+    configureAsana(token)
+    const projectsApi = new Asana.ProjectsApi()
+
+    const result = await projectsApi.getProjects({
       workspace,
       archived: false
     })
-    
-    const projectList = []
-    for await (const project of projects) {
-      projectList.push(project)
-    }
-    
-    res.json(projectList)
+    res.json(result.data || [])
   } catch (error) {
-    console.error('Failed to fetch projects:', error)
+    console.error('Failed to fetch projects:', error.message)
     res.status(500).json({ error: 'Failed to fetch projects' })
   }
 })
@@ -146,21 +131,17 @@ app.get('/api/projects', async (req, res) => {
     if (!appSettings.asanaWorkspace) {
       return res.json([])
     }
-    
-    const client = createAsanaClient()
-    const projects = await client.projects.findAll({
+
+    configureAsana()
+    const projectsApi = new Asana.ProjectsApi()
+
+    const result = await projectsApi.getProjects({
       workspace: appSettings.asanaWorkspace,
       archived: false
     })
-    
-    const projectList = []
-    for await (const project of projects) {
-      projectList.push(project)
-    }
-    
-    res.json(projectList)
+    res.json(result.data || [])
   } catch (error) {
-    console.error('Failed to fetch projects:', error)
+    console.error('Failed to fetch projects:', error.message)
     res.status(500).json({ error: 'Failed to fetch projects' })
   }
 })
@@ -171,34 +152,33 @@ app.get('/api/tasks', async (req, res) => {
     if (!appSettings.asanaWorkspace) {
       return res.json([])
     }
-    
-    const client = createAsanaClient()
-    const me = await client.users.me()
-    
-    // Get tasks assigned to the current user
-    const tasks = await client.tasks.findAll({
+
+    configureAsana()
+    const usersApi = new Asana.UsersApi()
+    const tasksApi = new Asana.TasksApi()
+
+    const meResult = await usersApi.getUser('me', {})
+    const me = meResult.data
+
+    const result = await tasksApi.getTasks({
       workspace: appSettings.asanaWorkspace,
       assignee: me.gid,
-      opt_fields: 'name,completed,due_on,assignee,projects,notes'
+      opt_fields: 'name,completed,due_on,assignee,assignee.name,projects,notes'
     })
-    
-    const taskList = []
-    for await (const task of tasks) {
-      taskList.push(task)
-    }
-    
-    // Sort by created date (most recent first)
+
+    const taskList = result.data || []
+
+    // Sort: incomplete tasks first
     taskList.sort((a, b) => {
-      // Incomplete tasks first
       if (a.completed !== b.completed) {
         return a.completed ? 1 : -1
       }
       return 0
     })
-    
-    res.json(taskList.slice(0, 50)) // Limit to 50 tasks
+
+    res.json(taskList.slice(0, 50))
   } catch (error) {
-    console.error('Failed to fetch tasks:', error)
+    console.error('Failed to fetch tasks:', error.message)
     res.status(500).json({ error: 'Failed to fetch tasks' })
   }
 })
@@ -209,31 +189,35 @@ app.get('/api/tasks/stats', async (req, res) => {
     if (!appSettings.asanaWorkspace) {
       return res.json({ active: 0, completed: 0 })
     }
-    
-    const client = createAsanaClient()
-    const me = await client.users.me()
-    
-    // Get all tasks
-    const tasks = await client.tasks.findAll({
+
+    configureAsana()
+    const usersApi = new Asana.UsersApi()
+    const tasksApi = new Asana.TasksApi()
+
+    const meResult = await usersApi.getUser('me', {})
+    const me = meResult.data
+
+    const result = await tasksApi.getTasks({
       workspace: appSettings.asanaWorkspace,
       assignee: me.gid,
       opt_fields: 'completed'
     })
-    
+
+    const tasks = result.data || []
     let active = 0
     let completed = 0
-    
-    for await (const task of tasks) {
+
+    for (const task of tasks) {
       if (task.completed) {
         completed++
       } else {
         active++
       }
     }
-    
+
     res.json({ active, completed })
   } catch (error) {
-    console.error('Failed to fetch task stats:', error)
+    console.error('Failed to fetch task stats:', error.message)
     res.status(500).json({ error: 'Failed to fetch task stats' })
   }
 })
@@ -242,28 +226,29 @@ app.get('/api/tasks/stats', async (req, res) => {
 app.post('/api/tasks', async (req, res) => {
   try {
     const { name, notes, project, due_on } = req.body
-    const client = createAsanaClient()
-    
+
+    configureAsana()
+    const tasksApi = new Asana.TasksApi()
+
     const taskData = {
       name,
       workspace: appSettings.asanaWorkspace,
       notes: notes || ''
     }
-    
-    // Add to project if specified or use default
+
     const projectId = project || appSettings.asanaProject
     if (projectId) {
       taskData.projects = [projectId]
     }
-    
+
     if (due_on) {
       taskData.due_on = due_on
     }
-    
-    const task = await client.tasks.create(taskData)
-    res.json(task)
+
+    const result = await tasksApi.createTask({ body: { data: taskData } })
+    res.json(result.data)
   } catch (error) {
-    console.error('Failed to create task:', error)
+    console.error('Failed to create task:', error.message)
     res.status(500).json({ error: 'Failed to create task' })
   }
 })
@@ -272,15 +257,16 @@ app.post('/api/tasks', async (req, res) => {
 app.put('/api/tasks/:taskId/complete', async (req, res) => {
   try {
     const { taskId } = req.params
-    const client = createAsanaClient()
-    
-    const task = await client.tasks.update(taskId, {
-      completed: true
+
+    configureAsana()
+    const tasksApi = new Asana.TasksApi()
+
+    const result = await tasksApi.updateTask(taskId, {
+      body: { data: { completed: true } }
     })
-    
-    res.json(task)
+    res.json(result.data)
   } catch (error) {
-    console.error('Failed to complete task:', error)
+    console.error('Failed to complete task:', error.message)
     res.status(500).json({ error: 'Failed to complete task' })
   }
 })
@@ -290,12 +276,16 @@ app.put('/api/tasks/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params
     const updates = req.body
-    const client = createAsanaClient()
-    
-    const task = await client.tasks.update(taskId, updates)
-    res.json(task)
+
+    configureAsana()
+    const tasksApi = new Asana.TasksApi()
+
+    const result = await tasksApi.updateTask(taskId, {
+      body: { data: updates }
+    })
+    res.json(result.data)
   } catch (error) {
-    console.error('Failed to update task:', error)
+    console.error('Failed to update task:', error.message)
     res.status(500).json({ error: 'Failed to update task' })
   }
 })
@@ -304,19 +294,21 @@ app.put('/api/tasks/:taskId', async (req, res) => {
 app.delete('/api/tasks/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params
-    const client = createAsanaClient()
-    
-    await client.tasks.delete(taskId)
+
+    configureAsana()
+    const tasksApi = new Asana.TasksApi()
+
+    await tasksApi.deleteTask(taskId)
     res.json({ success: true })
   } catch (error) {
-    console.error('Failed to delete task:', error)
+    console.error('Failed to delete task:', error.message)
     res.status(500).json({ error: 'Failed to delete task' })
   }
 })
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     configured: !!appSettings.asanaToken && !!appSettings.asanaWorkspace
@@ -327,7 +319,7 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Chimera Backend running on port ${PORT}`)
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`)
-  
+
   if (appSettings.asanaToken) {
     console.log('✅ Asana configured')
   } else {
