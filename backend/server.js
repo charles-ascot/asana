@@ -64,21 +64,31 @@ app.post('/api/settings', async (req, res) => {
 app.post('/api/asana/test', async (req, res) => {
   try {
     const { asanaToken } = req.body
-    const client = createAsanaClient(asanaToken)
-    
+
+    if (!asanaToken) {
+      return res.status(400).json({ error: 'No token provided' })
+    }
+
+    // Trim whitespace that may have been copied accidentally
+    const cleanToken = asanaToken.trim()
+    console.log('Testing Asana connection with token length:', cleanToken.length)
+    const client = createAsanaClient(cleanToken)
+
     // Test connection by fetching user info
     const me = await client.users.me()
-    
-    res.json({ 
-      success: true, 
+
+    console.log('Asana connection successful for user:', me.name)
+    res.json({
+      success: true,
       user: me.name,
-      email: me.email 
+      email: me.email
     })
   } catch (error) {
-    console.error('Asana test failed:', error)
-    res.status(400).json({ 
+    console.error('Asana test failed:', error.message)
+    console.error('Error details:', JSON.stringify(error, null, 2))
+    res.status(400).json({
       error: 'Invalid Asana token or connection failed',
-      details: error.message 
+      details: error.message
     })
   }
 })
