@@ -87,19 +87,22 @@ app.post('/api/asana/test', async (req, res) => {
 app.get('/api/asana/workspaces', async (req, res) => {
   try {
     const token = req.headers['x-asana-token']
+    if (!token) {
+      return res.status(401).json({ error: 'No Asana token provided' })
+    }
+
     const client = createAsanaClient(token)
-    
     const workspaces = await client.workspaces.findAll()
     const workspaceList = []
-    
+
     for await (const workspace of workspaces) {
       workspaceList.push(workspace)
     }
-    
+
     res.json(workspaceList)
   } catch (error) {
     console.error('Failed to fetch workspaces:', error)
-    res.status(500).json({ error: 'Failed to fetch workspaces' })
+    res.status(401).json({ error: 'Invalid token or failed to fetch workspaces' })
   }
 })
 
